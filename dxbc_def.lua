@@ -505,6 +505,11 @@ m.shader_def = {
         end
         return 'return'
     end,
+    ['ineg'] = function(op_args, a, b)
+        local namea = get_var_name(a)
+        local nameb = get_var_name(b, a)
+        return _format('%s = -%s', namea, nameb)
+    end,
 
     ['vs_%d_%d'] = false,
     ['ps_%d_%d'] = false,
@@ -514,11 +519,34 @@ m.shader_def = {
 
 -- sm5
 m.shader_def5 = {
-    bfi = function(op_args, width, offset, src2, src3)
-        return _format([[
-            bitmask = (((1 << %s)-1) << %s) & 0xffffffff
-            dest = ((%s << %s) & bitmask) | (%s & ~bitmask)]], width, offset, src2, offset, src3)
+    bfi = function(op_args, dest_p, width_p, offset_p, src2_p, src3_p)
+        local dest = get_var_name(dest_p)
+        local width = get_var_name(width_p)
+        local offset = get_var_name(offset_p)
+        local src2 = get_var_name(src2_p)
+        local src3 = get_var_name(src3_p)
+        return _format([[var bitmask = (((1 << %s)-1) << %s) & 0xffffffff
+        %s = ((%s << %s) & bitmask) | (%s & ~bitmask)]], dest, width, offset, src2, offset, src3)
     end,
+    ubfe = function(op_args, dest_p, width_p, offset_p, src2_p)
+        local dest = get_var_name(dest_p)
+        local width = get_var_name(width_p)
+        local offset = get_var_name(offset_p)
+        local src2 = get_var_name(src2_p)
+        return _format([[if( %s == 0 )
+        {
+            %s = 0
+        }
+        else if( %s + %s < 32 )
+        {
+            %s = %s << 32-(%s+%s)
+            %s =  %s >> 32-%s
+        }
+        else
+        {
+            %s = %s >> %s
+        }]], width, dest, width, offset, dest, src2, width, offset, dest, dest, width, dest, src2, offset)
+    end,    
     bfrev = function(op_args, dest, src)
         return _format('%s = reverse_bit(%s) ', dest, src)
     end,
